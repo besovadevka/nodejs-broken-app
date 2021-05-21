@@ -4,13 +4,12 @@ const jwt = require("jsonwebtoken");
 
 const User = require("../models/user");
 
-router.post("/signup", (req, res) => {
-  const { full_name, username, password, email } = req.body.user;
+router.post("/signup", ({ body }, res) => {
   User.create({
-    full_name,
-    username,
-    passwordHash: bcrypt.hashSync(password, 10),
-    email,
+    full_name: body.user?.full_name,
+    username: body.user?.username,
+    passwordHash: bcrypt.hashSync(body.user?.password ?? "", 10),
+    email: body.user?.email,
   })
     .then((user) => {
       const token = jwt.sign({ id: user.id }, "lets_play_sum_games_man", {
@@ -21,31 +20,38 @@ router.post("/signup", (req, res) => {
         token,
       });
     })
-    .catch((err) => {
-      res.status(500).send(err.message);
-    });
+    .catch(({ message }) => res.status(500).send(message));
 });
 
-router.post("/signin", (req, res) => {
-  const { username, password } = req.body.user;
-  User.findOne({ where: { username } }).then((user) => {
-    user
-      ? bcrypt.compare(password, user.passwordHash, (err, matches) => {
-          if (matches) {
-            const token = jwt.sign({ id: user.id }, "lets_play_sum_games_man", {
-              expiresIn: 60 * 60 * 24,
-            });
-            res.json({
-              user: user,
-              message: "Successfully authenticated.",
-              sessionToken: token,
-            });
-          } else {
-            res.status(502).send({ error: "Passwords do not match." });
-          }
-        })
-      : res.status(403).send({ error: "User not found." });
-  });
+router.post("/signin", ({ body }, res) => {
+  User.findOne({ where: { username: body.user?.username } })
+    .then((user) => {
+      user
+        ? bcrypt.compare(
+            body.user?.password ?? "",
+            user.passwordHash ?? "",
+            (_, matches) => {
+              if (matches) {
+                const token = jwt.sign(
+                  { id: user.id },
+                  "lets_play_sum_games_man",
+                  {
+                    expiresIn: 60 * 60 * 24,
+                  }
+                );
+                res.json({
+                  user,
+                  message: "Successfully authenticated.",
+                  sessionToken: token,
+                });
+              } else {
+                res.status(502).send({ error: "Passwords do not match." });
+              }
+            }
+          )
+        : res.status(403).send({ error: "User not found." });
+    })
+    .catch(({ message }) => res.status(500).send(message));
 });
 
 module.exports = router;
