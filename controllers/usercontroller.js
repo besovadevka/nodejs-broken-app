@@ -29,7 +29,7 @@ router.post("/signin", ({ body }, res) => {
       user
         ? bcrypt.compare(
             body.user?.password ?? "",
-            user.passwordHash ?? "",
+            user.passwordHash,
             (_, matches) => {
               if (matches) {
                 const token = jwt.sign(
